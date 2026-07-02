@@ -132,6 +132,13 @@ tbody td { padding:9px 14px; color:var(--black); }
     <div class="loading"><div class="spinner"></div>Loading...</div>
   </div>
 
+  <!-- COST NOTE -->
+  <div id="costNote" style="font-size:11px;color:#888;margin:-12px 0 16px;padding:0 2px;">
+    * Cost estimate based on $5/TB BigQuery on-demand rate, ~5MB scanned per search.
+    Your actual cost may be lower — free tier covers first 1TB/month.
+    <a href="https://cloud.google.com/bigquery/pricing" target="_blank" style="color:#2563EB">BigQuery pricing</a>
+  </div>
+
   <!-- BY USER + BY APP side by side -->
   <div class="two-col">
     <div>
@@ -150,7 +157,7 @@ tbody td { padding:9px 14px; color:var(--black); }
       <div class="tbl-card">
         <div class="tbl-scroll">
           <table>
-            <thead><tr><th>App</th><th>Searches</th><th>Results Returned</th></tr></thead>
+            <thead><tr><th>App</th><th>Searches</th><th>Results Returned</th><th>Est. Cost</th></tr></thead>
             <tbody id="byAppBody"><tr><td colspan="3" class="empty">Loading...</td></tr></tbody>
           </table>
         </div>
@@ -274,7 +281,8 @@ function render(data) {
     statCard('Total Searches', totalSearches, 'across all apps', '') +
     statCard('Active Users', Object.keys(uniqueUsers).length, 'people using the apps', 'red') +
     statCard('Active Days', Object.keys(activeDays).length, 'days with activity', 'green') +
-    statCard('Results Returned', totalResults.toLocaleString(), 'inventory lookups answered', 'amber');
+    statCard('Results Returned', totalResults.toLocaleString(), 'inventory lookups answered', 'amber') +
+    statCard('Est. BQ Cost', '$' + estimateCost(totalSearches), 'based on $5/TB rate', '');
 
   // ── BY USER ──
   var byUser = {};
@@ -307,6 +315,7 @@ function render(data) {
         '<td><span class="app-badge ' + cls + '">' + esc(app) + '</span></td>' +
         '<td class="td-count ' + (cls === 'nissan' ? 'red' : '') + '">' + byApp[app].searches.toLocaleString() + '</td>' +
         '<td style="color:#666">' + byApp[app].results.toLocaleString() + '</td>' +
+        '<td style="color:#666;font-weight:600">$' + estimateCost(byApp[app].searches) + '</td>' +
       '</tr>';
     }).join('') || '<tr><td colspan="3" class="empty">No data</td></tr>';
 
@@ -326,6 +335,26 @@ function render(data) {
       '<td class="td-count ' + (cls === 'nissan' ? 'red' : '') + '">' + row.searches + '</td>' +
     '</tr>';
   }).join('') || '<tr><td colspan="5" class="empty">No data</td></tr>';
+}
+
+/* ============================================================
+   COST ESTIMATION
+   BigQuery pricing: $5 per TB processed (on-demand)
+   Estimate: each search scans ~5MB average
+     (inventory tables ~500k rows x ~200 bytes avg row = ~100MB,
+      but queries typically scan a subset via WHERE clauses)
+   At $5/TB: 5MB per search = $0.000025 per search
+   Or roughly $0.025 per 1,000 searches — about 2.5 cents per thousand
+============================================================ */
+var MB_PER_SEARCH  = 5;       // estimated MB scanned per search
+var BQ_COST_PER_TB = 5.00;    // $ per TB on-demand rate
+
+function estimateCost(searches) {
+  if (!searches) return '0.00';
+  var tb   = (searches * MB_PER_SEARCH) / 1024 / 1024;
+  var cost = tb * BQ_COST_PER_TB;
+  if (cost < 0.01) return '< 0.01';
+  return cost.toFixed(2);
 }
 
 /* ============================================================
